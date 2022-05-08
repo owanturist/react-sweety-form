@@ -1,0 +1,69 @@
+{
+  "name": "react-sweety-form",
+  "version": "1.0.0-beta.1",
+  "description": "The clean and natural React form state management",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "import": "./dist/index.mjs",
+    "default": "./dist/index.js"
+  },
+  "scripts": {
+    "clean": "rm -rf ./dist",
+    "prebuild": "npm run clean",
+    "build": "tsup src/index.ts --dts --sourcemap --format=esm,cjs --env.NODE_ENV=production",
+    "pretest": "node ./printReactVersion",
+    "test": "vitest",
+    "test:coverage": "npm test -- --run --coverage",
+    "lint": "eslint . --ext=js,jsx,ts,tsx,md",
+    "prettify": "prettier . --write",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/owanturist/react-sweety-form.git"
+  },
+  "keywords": [
+    "react",
+    "react-hooks",
+    "react-form",
+    "react-sweety"
+  ],
+  "author": "Anton Ovechkin <owanturist@gmail.com>",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/owanturist/react-sweety-form/issues"
+  },
+  "homepage": "https://github.com/owanturist/react-sweety-form#readme",
+  "peerDependencies": {
+    "react": "^16.8.0 || ^17.0.0 || ^18.0.0"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^5.16.4",
+    "@testing-library/react": "^13.2.0",
+    "@testing-library/react-hooks": "file:node_modules/@testing-library/react",
+    "@types/react": "^18.0.9",
+    "@typescript-eslint/eslint-plugin": "^5.22.0",
+    "@typescript-eslint/parser": "^5.22.0",
+    "c8": "^7.11.2",
+    "eslint": "^8.15.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jest": "^26.1.5",
+    "eslint-plugin-jest-dom": "^4.0.1",
+    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-react": "^7.29.4",
+    "eslint-plugin-react-hooks": "^4.5.0",
+    "prettier": "^2.6.2",
+    "react": "^18.0.0",
+    "tsup": "^5.12.7",
+    "typescript": "^4.6.4",
+    "vitest": "^0.10.5"
+  }
+}
