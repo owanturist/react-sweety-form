@@ -1,3 +1,6 @@
+import { SetStateAction } from "react"
+import { Sweety } from "react-sweety"
+
 type Compute<TObject> = {
   [TKey in keyof TObject]: TObject[TKey]
 } & unknown
@@ -8,19 +11,34 @@ type WhenUnknown<TFallback, TValue> = unknown extends TValue
 
 type Transform<TValue, TResult> = (value: TValue) => TResult
 
+const selectSafe = <TValue, TResult = TValue>(
+  select: undefined | Transform<TValue, TResult>,
+  value: TValue,
+): TResult => {
+  return typeof select === "function"
+    ? select(value)
+    : (value as unknown as TResult)
+}
+
 export interface SweetyForm<TValue, TError = never> {
-  getValue<TResult = TValue>(select?: Transform<TValue, TResult>): TResult
+  getValue<TResult = TValue>(select?: (value: TValue) => TResult): TResult
 
   getError<TResult = null | TError>(
-    select?: Transform<null | TError, TResult>,
+    select?: (error: null | TError) => TResult,
   ): TResult
 }
 
-type UnpackFormValue<TForm> = TForm extends FormValue<infer TValue, unknown>
+type UnpackFormValue<TForm> = TForm extends FormValue<
+  infer TValue,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  infer _TError
+>
   ? TValue
-  : TForm extends FormShape<infer TShape, unknown>
+  : // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  TForm extends FormShape<infer TShape, infer _TError>
   ? UnpackFormShapeValue<TShape>
-  : TForm extends FormList<infer TItem, unknown>
+  : // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  TForm extends FormList<infer TItem, infer _TError>
   ? ReadonlyArray<UnpackFormValue<TItem>>
   : never
 
@@ -68,8 +86,8 @@ type FormListError<
 // F O R M   V A L U E
 // -------------------
 
-interface FormValueOfOptions<TValue, TError = never> {
-  validate?: Transform<TValue, null | TError>
+interface FormValueOfOptions<TError = never> {
+  error?: null | TError
 }
 
 export class FormValue<TValue, TError = never>
@@ -77,40 +95,38 @@ export class FormValue<TValue, TError = never>
 {
   public static of<TValue, TError = never>(
     value: TValue,
-    { validate }: FormValueOfOptions<TValue, TError> = {},
+    { error = null }: FormValueOfOptions<TError> = {},
   ): FormValue<TValue, TError> {
-    return new FormValue(value, validate)
+    return new FormValue(Sweety.of(value), Sweety.of(error))
   }
 
   private constructor(
-    private readonly value: TValue,
-    private readonly validate?: Transform<TValue, null | TError>,
+    private readonly value: Sweety<TValue>,
+    private readonly error: Sweety<null | TError>,
   ) {}
 
   public getValue<TResult = TValue>(
-    select?: Transform<TValue, TResult>,
+    select?: (value: TValue) => TResult,
   ): TResult {
-    throw new Error(String(select))
+    return this.value.getState(select!)
   }
 
-  public setValue(transform: Transform<TValue, TValue>): void
+  public setValue(transform: (value: TValue) => TValue): void
   public setValue(value: TValue): void
-  public setValue(transformOrValue: TValue | Transform<TValue, TValue>): void {
-    throw new Error(String(transformOrValue))
+  public setValue(transformOrValue: SetStateAction<TValue>): void {
+    this.value.setState(transformOrValue)
   }
 
   public getError<TResult = null | TError>(
-    select?: Transform<null | TError, TResult>,
+    select?: (error: null | TError) => TResult,
   ): TResult {
-    throw new Error(select?.name)
+    return this.error.getState(select!)
   }
 
-  public setError(transform: Transform<null | TError, null | Error>): void
+  public setError(transform: (error: null | TError) => null | TError): void
   public setError(error: null | TError): void
-  public setError(
-    transformOrError: null | TError | Transform<null | TError, null | Error>,
-  ): void {
-    throw new Error(String(transformOrError))
+  public setError(transformOrError: SetStateAction<null | TError>): void {
+    this.error.setState(transformOrError)
   }
 }
 
@@ -118,11 +134,8 @@ export class FormValue<TValue, TError = never>
 // F O R M   S H A P E
 // -------------------
 
-interface FormShapeOfOptions<
-  TShape extends Record<string, SweetyForm<unknown, unknown>>,
-  TError = never,
-> {
-  validate?: Transform<UnpackFormShapeValue<TShape>, null | TError>
+interface FormShapeOfOptions<TError = never> {
+  error?: null | TError
 }
 
 export class FormShape<
@@ -136,41 +149,64 @@ export class FormShape<
     TError = never,
   >(
     fields: TShape,
-    { validate }: FormShapeOfOptions<TShape, TError> = {},
+    { error = null }: FormShapeOfOptions<TError> = {},
   ): FormShape<TShape, TError> {
-    return new FormShape(fields, validate)
+    return new FormShape(fields, Sweety.of(error))
   }
 
   private constructor(
     private readonly fields: TShape,
-    private readonly validate?: Transform<
-      UnpackFormShapeValue<TShape>,
-      null | TError
-    >,
+    private readonly error: Sweety<null | TError>,
   ) {}
 
   public getValue<TResult = UnpackFormShapeValue<TShape>>(
-    select?: Transform<UnpackFormShapeValue<TShape>, TResult>,
+    select?: (shape: UnpackFormShapeValue<TShape>) => TResult,
   ): TResult {
-    throw new Error(String(select))
+    const acc = {} as UnpackFormShapeValue<TShape>
+
+    for (const [key, field] of Object.entries(this.fields)) {
+      acc[key as keyof TShape] = field.getValue()
+    }
+
+    return selectSafe(select, acc)
   }
 
   public getError<TResult = null | FormShapeError<TShape, TError>>(
-    select?: Transform<null | FormShapeError<TShape, TError>, TResult>,
+    select?: (error: null | FormShapeError<TShape, TError>) => TResult,
   ): TResult {
-    throw new Error(select?.name)
+    let hasFieldErrors = false
+    const fields = {} as UnpackFormShapeError<TShape>
+
+    for (const [key, field] of Object.entries(this.fields)) {
+      fields[key as keyof TShape] = field.getError()
+      hasFieldErrors = hasFieldErrors || fields[key] != null
+    }
+
+    const shapeError = this.error.getState()
+
+    if (shapeError == null && !hasFieldErrors) {
+      return selectSafe(select, null)
+    }
+
+    return selectSafe(select, {
+      shape: shapeError as WhenUnknown<never, TError>,
+      fields: hasFieldErrors ? fields : null,
+    })
   }
 
-  public update(callback: (fields: TShape) => void): void {
+  public setShapeError(transform: (error: null | TError) => null | TError): void
+  public setShapeError(error: null | TError): void
+  public setShapeError(transformOrError: SetStateAction<null | TError>): void {
+    this.error.setState(transformOrError)
+  }
+
+  public updateFields(callback: (fields: TShape) => void): void {
     callback(this.fields)
   }
 }
 
-interface FormListOfOptions<
-  TItem extends SweetyForm<unknown, unknown>,
-  TError = never,
-> {
-  validate?: Transform<ReadonlyArray<TItem>, null | TError>
+interface FormListOfOptions<TError = never> {
+  error?: null | TError
 }
 
 export class FormList<
@@ -184,32 +220,56 @@ export class FormList<
 {
   public static of<TItem extends SweetyForm<unknown, unknown>, TError = never>(
     items: ReadonlyArray<TItem>,
-    { validate }: FormListOfOptions<TItem, TError> = {},
+    { error = null }: FormListOfOptions<TError> = {},
   ): FormList<TItem, TError> {
-    return new FormList(items, validate)
+    return new FormList(Sweety.of(items), Sweety.of(error))
   }
 
   private constructor(
-    private readonly items: ReadonlyArray<TItem>,
-    private readonly validate?: Transform<ReadonlyArray<TItem>, null | TError>,
+    private readonly items: Sweety<ReadonlyArray<TItem>>,
+    private readonly error: Sweety<null | TError>,
   ) {}
 
   public getValue<TResult = ReadonlyArray<UnpackFormValue<TItem>>>(
-    select?: Transform<ReadonlyArray<UnpackFormValue<TItem>>, TResult>,
+    select?: (items: ReadonlyArray<UnpackFormValue<TItem>>) => TResult,
   ): TResult {
-    throw new Error(String(select))
+    return selectSafe(
+      select,
+      this.items.getState().map((item) => item.getValue()),
+    )
   }
 
   public getError<TResult = null | FormListError<TItem, TError>>(
-    select?: Transform<null | FormListError<TItem, TError>, TResult>,
+    select?: (error: null | FormListError<TItem, TError>) => TResult,
   ): TResult {
-    throw new Error(select?.name)
+    let hasItemErrors = false
+    const items = [] as Array<UnpackFormError<TItem>>
+
+    for (const item of this.items.getState()) {
+      items.push(item.getError())
+      hasItemErrors = hasItemErrors || items.at(-1) != null
+    }
+
+    const listError = this.error.getState()
+
+    if (listError == null && !hasItemErrors) {
+      return selectSafe(select, null)
+    }
+
+    return selectSafe(select, {
+      list: listError as WhenUnknown<never, TError>,
+      items: hasItemErrors ? items : null,
+    })
   }
 
   public update(
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
   ): void {
-    callback(this.items)
+    this.items.getState((items) => {
+      const nextItems = callback(items)
+
+      return nextItems || items
+    })
   }
 }
