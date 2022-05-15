@@ -1,4 +1,4 @@
-import { FormValue, FormShape, FormList } from "../src/attempt2"
+import { FormValue, FormShape, FormList } from "../src"
 
 describe("FormValue#getValue()", () => {
   it.concurrent("returns the stored value", () => {
