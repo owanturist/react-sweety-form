@@ -262,11 +262,17 @@ export class FormList<
     })
   }
 
-  public update(
+  public setListError(transform: (error: null | TError) => null | TError): void
+  public setListError(error: null | TError): void
+  public setListError(transformOrError: SetStateAction<null | TError>): void {
+    this.error.setState(transformOrError)
+  }
+
+  public updateItems(
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
   ): void {
-    this.items.getState((items) => {
+    this.items.setState((items) => {
       const nextItems = callback(items)
 
       return nextItems || items
