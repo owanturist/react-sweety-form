@@ -1,5 +1,11 @@
-import { SetStateAction } from "react"
-import { Sweety } from "react-sweety"
+import React, {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+} from "react"
+import { Compare, Sweety, useWatchSweety } from "react-sweety"
 
 type Compute<TObject> = {
   [TKey in keyof TObject]: TObject[TKey]
@@ -155,11 +161,12 @@ export class FormShape<
   }
 
   private constructor(
-    private readonly fields: TShape,
+    public readonly fields: TShape,
     private readonly error: Sweety<null | TError>,
   ) {}
 
   public getValue<TResult = UnpackFormShapeValue<TShape>>(
+    // TODO not sure it is needed, anywhere
     select?: (shape: UnpackFormShapeValue<TShape>) => TResult,
   ): TResult {
     const acc = {} as UnpackFormShapeValue<TShape>
@@ -198,10 +205,6 @@ export class FormShape<
   public setShapeError(error: null | TError): void
   public setShapeError(transformOrError: SetStateAction<null | TError>): void {
     this.error.setState(transformOrError)
-  }
-
-  public updateFields(callback: (fields: TShape) => void): void {
-    callback(this.fields)
   }
 }
 
@@ -268,6 +271,12 @@ export class FormList<
     this.error.setState(transformOrError)
   }
 
+  public getItems<TResult = ReadonlyArray<TItem>>(
+    select?: (items: ReadonlyArray<TItem>) => TResult,
+  ): TResult {
+    return this.items.getState(select!)
+  }
+
   public updateItems(
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
@@ -277,5 +286,140 @@ export class FormList<
 
       return nextItems || items
     })
+  }
+}
+
+const useEvent = <THandler extends (...args: Array<never>) => unknown>(
+  handler: THandler,
+): THandler => {
+  const handlerRef = useRef(handler)
+
+  useLayoutEffect(() => {
+    handlerRef.current = handler
+  })
+
+  return useRef(((...args) => handlerRef.current(...args)) as THandler).current
+}
+
+export function useGetFormValue<TValue, TResult = TValue>(
+  form: SweetyForm<TValue, unknown>,
+  select?: (value: TValue) => TResult,
+  compare?: Compare<TResult>,
+): TResult {
+  return useWatchSweety(
+    useCallback(() => form.getValue(select), [form, select]),
+    compare,
+  )
+}
+
+// TODO change name, as well as SweetyForm#getValue #setValue
+// it should not interfere with the FormValue
+export function useGetFormError<TError, TResult = TError>(
+  form: SweetyForm<unknown, TError>,
+  select?: (error: null | TError) => TResult,
+  compare?: Compare<TResult>,
+): TResult {
+  return useWatchSweety(
+    useCallback(() => form.getError(select), [form, select]),
+    compare,
+  )
+}
+
+export function useFormValue<TValue, TError = never, TResult = TValue>(
+  formValue: FormValue<TValue, TError>,
+  select?: (value: TValue) => TResult,
+  compare?: Compare<TResult>,
+): [TResult, Dispatch<SetStateAction<TValue>>] {
+  const value = useWatchSweety(
+    useCallback(() => formValue.getValue(select), [formValue, select]),
+    compare,
+  )
+  const setValue = useEvent((valueOrTransform: SetStateAction<TValue>) =>
+    formValue.setValue(valueOrTransform as TValue),
+  )
+
+  return [value, setValue]
+}
+
+export function useFormList<
+  TItem extends SweetyForm<unknown, unknown>,
+  TError = never,
+  TResult = Array<TItem>,
+>(
+  formList: FormList<TItem, TError>,
+  select?: (items: ReadonlyArray<TItem>) => TResult,
+  // TODO add shallow array compare by default
+  compare?: Compare<TResult>,
+): [
+  TResult,
+  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+  Dispatch<(items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>>,
+] {
+  const items = useWatchSweety(
+    useCallback(() => formList.getItems(select), [formList, select]),
+    compare,
+  )
+  const setItems = useEvent(
+    (
+      // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+      callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
+    ): void => {
+      formList.updateItems(callback)
+    },
+  )
+
+  return [items, setItems]
+}
+
+export type FormReValidateMode = "onChange" | "onBlur" | "onSubmit"
+
+export type FormValidateMode = FormReValidateMode | "onTouched" | "all"
+
+export interface UseSweetyFormOptions<
+  TForm extends SweetyForm<unknown, unknown>,
+> {
+  validateMode?: FormValidateMode
+  reValidateMode?: FormReValidateMode
+  onSubmit?(
+    value: UnpackFormValue<TForm>,
+    error: null | UnpackFormError<TForm>,
+    event?: React.FormEvent,
+  ): void | Promise<void>
+}
+
+export interface UseSweetyFormResult<
+  TForm extends SweetyForm<unknown, unknown>,
+> {
+  form: TForm
+  submit(event?: React.FormEvent): Promise<void>
+}
+
+export function useSweetyForm<TForm extends SweetyForm<unknown, unknown>>(
+  initForm: () => TForm,
+  {
+    // TODO implement
+    // validateMode = "onSubmit",
+    // reValidateMode = "onChange",
+    onSubmit,
+  }: UseSweetyFormOptions<TForm> = {},
+): UseSweetyFormResult<TForm> {
+  const formRef = useRef<TForm>()
+
+  if (formRef.current == null) {
+    formRef.current = initForm()
+  }
+
+  const submit = useEvent(async (event?: React.FormEvent): Promise<void> => {
+    const form = formRef.current!
+
+    const value: UnpackFormValue<TForm> = form.getValue()
+    const error: null | UnpackFormError<TForm> = form.getError()
+
+    await onSubmit?.(value, error, event)
+  })
+
+  return {
+    form: formRef.current,
+    submit,
   }
 }

@@ -380,7 +380,7 @@ describe("FormShape#getError()", () => {
   })
 })
 
-describe("FormShape#updateFields()", () => {
+describe("FormShape#fields", () => {
   it.concurrent("updates fields' values", () => {
     const form = FormShape.of({
       foo: FormValue.of("foo"),
@@ -392,13 +392,13 @@ describe("FormShape#updateFields()", () => {
       bar: "bar",
     })
 
-    form.updateFields((x) => x.foo.setValue("foo1"))
+    form.fields.foo.setValue("foo1")
     expect(form.getValue()).toStrictEqual({
       foo: "foo1",
       bar: "bar",
     })
 
-    form.updateFields((x) => x.bar.setValue((y) => y + "2"))
+    form.fields.bar.setValue((y) => y + "2")
     expect(form.getValue()).toStrictEqual({
       foo: "foo1",
       bar: "bar2",
@@ -414,7 +414,7 @@ describe("FormShape#updateFields()", () => {
       { error: "err" },
     )
 
-    form.updateFields((x) => x.foo.setError(2))
+    form.fields.foo.setError(2)
     expect(form.getError()).toStrictEqual({
       shape: "err",
       fields: {
@@ -423,7 +423,7 @@ describe("FormShape#updateFields()", () => {
       },
     })
 
-    form.updateFields((x) => x.foo.setError(null))
+    form.fields.foo.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
       fields: {
@@ -432,7 +432,7 @@ describe("FormShape#updateFields()", () => {
       },
     })
 
-    form.updateFields((x) => x.bar.setError(null))
+    form.fields.bar.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
       fields: null,
