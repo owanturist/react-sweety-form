@@ -17,7 +17,7 @@ type WhenUnknown<TFallback, TValue> = unknown extends TValue
   ? TFallback
   : TValue
 
-export type Transform<TValue, TResult> = (value: TValue) => TResult
+export type Transform<TValue, TResult = TValue> = (value: TValue) => TResult
 
 export type Validate<TValue, TError = null> = (
   value: TValue,
@@ -106,7 +106,7 @@ type FormListError<
 // F O R M   V A L U E
 // -------------------
 
-interface FormFieldOfOptions<TError = null> {
+export interface FormFieldOfOptions<TError = null> {
   error?: null | TError
 }
 
@@ -135,8 +135,6 @@ export class FormField<TValue, TError = null>
     return this.value.getState()
   }
 
-  public setValue(transform: (value: TValue) => TValue): void
-  public setValue(value: TValue): void
   public setValue(transformOrValue: SetStateAction<TValue>): void {
     this.value.setState(transformOrValue)
   }
@@ -145,8 +143,6 @@ export class FormField<TValue, TError = null>
     return this.error.getState()
   }
 
-  public setError(transform: (error: null | TError) => null | TError): void
-  public setError(error: null | TError): void
   public setError(transformOrError: SetStateAction<null | TError>): void {
     this.error.setState(transformOrError)
   }
@@ -156,7 +152,7 @@ export class FormField<TValue, TError = null>
 // F O R M   S H A P E
 // -------------------
 
-interface FormShapeOfOptions<TError = null> {
+export interface FormShapeOfOptions<TError = null> {
   error?: null | TError
 }
 
@@ -229,16 +225,18 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     }
   }
 
-  public setShapeError(transform: (error: null | TError) => null | TError): void
-  public setShapeError(error: null | TError): void
   public setShapeError(transformOrError: SetStateAction<null | TError>): void {
     this.error.setState(transformOrError)
   }
 }
 
-interface FormListOfOptions<TError = null> {
+export interface FormListOfOptions<TError = null> {
   error?: null | TError
 }
+
+export type FormListSetItems<TItem extends SweetyForm<unknown, unknown>> =
+  | Array<TItem>
+  | Transform<ReadonlyArray<TItem>, Array<TItem>>
 
 export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
   implements
@@ -257,7 +255,7 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
   private context: FormContext | null = null
 
   protected constructor(
-    private readonly items: Sweety<ReadonlyArray<TItem>>,
+    private readonly list: Sweety<ReadonlyArray<TItem>>,
     private readonly error: Sweety<null | TError>,
   ) {}
 
@@ -266,7 +264,7 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
       return
     }
 
-    for (const item of this.items.getState()) {
+    for (const item of this.list.getState()) {
       item.setContext(this.context)
     }
   }
@@ -279,16 +277,16 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
   }
 
   public getValue(): ReadonlyArray<UnpackFormValue<TItem>> {
-    return this.items
+    return this.list
       .getState()
       .map((item) => item.getValue() as UnpackFormValue<TItem>)
   }
 
   public getError(): null | FormListError<TItem, TError> {
     let hasItemErrors = false
-    const items = [] as Array<UnpackFormError<TItem>>
+    const items = new Array<UnpackFormError<TItem>>()
 
-    for (const item of this.items.getState()) {
+    for (const item of this.list.getState()) {
       items.push(item.getError() as UnpackFormError<TItem>)
       hasItemErrors = hasItemErrors || items.at(-1) != null
     }
@@ -305,25 +303,17 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
     }
   }
 
-  public setListError(transform: (error: null | TError) => null | TError): void
-  public setListError(error: null | TError): void
+  public get items(): ReadonlyArray<TItem> {
+    return this.list.getState()
+  }
+
+  public setItems(transformOrItems: FormListSetItems<TItem>): void {
+    this.list.setState(transformOrItems)
+    this.spreadContext()
+  }
+
   public setListError(transformOrError: SetStateAction<null | TError>): void {
     this.error.setState(transformOrError)
-  }
-
-  public getItems<TResult = ReadonlyArray<TItem>>(
-    select?: (items: ReadonlyArray<TItem>) => TResult,
-  ): TResult {
-    return this.items.getState(select!)
-  }
-
-  // returns an array when it needs to modify the list
-  // returns void when modifies items
-  public updateItems(
-    callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
-  ): void {
-    this.items.setState((items) => callback(items) || items)
-    this.spreadContext()
   }
 }
 
@@ -415,8 +405,8 @@ export interface UseFormValueOptions<TValue, TError = null, TResult = TValue> {
 export function useFormField<TValue, TError = null, TResult = TValue>(
   formValue: FormField<TValue, TError>,
   {
-    select = identity as Transform<TValue, TResult>,
     compare,
+    select = identity as Transform<TValue, TResult>,
     validate = alwaysNull,
   }: UseFormValueOptions<TValue, TError, TResult> = {},
 ): [TResult, Dispatch<SetStateAction<TValue>>] {
@@ -442,27 +432,36 @@ export function useFormField<TValue, TError = null, TResult = TValue>(
 export function useFormList<
   TItem extends SweetyForm<unknown, unknown>,
   TError = null,
-  TResult = Array<TItem>,
+  TResult = ReadonlyArray<TItem>,
 >(
   formList: FormList<TItem, TError>,
-  select?: (items: ReadonlyArray<TItem>) => TResult,
-  // TODO add shallow array compare by default
-  compare?: Compare<TResult>,
-): [
-  TResult,
-  Dispatch<(items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>>,
-] {
+  {
+    compare,
+    select = identity as Transform<ReadonlyArray<TItem>, TResult>,
+    validate = alwaysNull,
+  }: UseFormValueOptions<ReadonlyArray<TItem>, TError, TResult> = {},
+): [TResult, Dispatch<FormListSetItems<TItem>>] {
   const items = useWatchSweety(
-    useCallback(() => formList.getItems(select), [formList, select]),
+    useCallback(() => select(formList.items), [formList, select]),
     compare,
   )
   const setItems = useEvent(
-    (
-      callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
-    ): void => {
-      formList.updateItems(callback)
+    (transformOrItems: FormListSetItems<TItem>): void => {
+      batch(() => {
+        formList.setItems(transformOrItems)
+        formList.setListError(
+          validate(formList.items, formList.getError()?.list ?? null),
+        )
+      })
     },
   )
+
+  // fires when validate changes
+  useEffect(() => {
+    formList.setListError(
+      validate(formList.items, formList.getError()?.list ?? null),
+    )
+  }, [formList, validate])
 
   return [items, setItems]
 }

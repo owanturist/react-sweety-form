@@ -614,10 +614,10 @@ describe("FormList#updateItems()", () => {
 
     expect(form.getValue()).toStrictEqual(["foo", "bar"])
 
-    form.updateItems((x) => x.at(0)?.setValue("foo1"))
+    form.items.at(0)?.setValue("foo1")
     expect(form.getValue()).toStrictEqual(["foo1", "bar"])
 
-    form.updateItems((x) => x.at(1)?.setValue((y) => y + "2"))
+    form.items.at(1)?.setValue((y) => y + "2")
     expect(form.getValue()).toStrictEqual(["foo1", "bar2"])
   })
 
@@ -632,19 +632,19 @@ describe("FormList#updateItems()", () => {
       items: [1, 2],
     })
 
-    form.updateItems((x) => x.at(0)?.setError(3))
+    form.items.at(0)?.setError(3)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: [3, 2],
     })
 
-    form.updateItems((x) => x.at(1)?.setError(null))
+    form.items.at(1)?.setError(null)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: [3, null],
     })
 
-    form.updateItems((x) => x.at(0)?.setError(null))
+    form.items.at(0)?.setError(null)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: null,
@@ -657,7 +657,7 @@ describe("FormList#updateItems()", () => {
       { error: "err" },
     )
 
-    form.updateItems((x) => [...x, FormField.of("baz")])
+    form.setItems((x) => [...x, FormField.of("baz")])
 
     expect(form.getValue()).toStrictEqual(["foo", "bar", "baz"])
     expect(form.getError()).toStrictEqual({
@@ -665,10 +665,7 @@ describe("FormList#updateItems()", () => {
       items: [1, 2, null],
     })
 
-    form.updateItems((x) => [
-      ...x.slice(1),
-      FormField.of("carabaz", { error: 3 }),
-    ])
+    form.setItems((x) => [...x.slice(1), FormField.of("carabaz", { error: 3 })])
     expect(form.getValue()).toStrictEqual(["bar", "baz", "carabaz"])
     expect(form.getError()).toStrictEqual({
       list: "err",
