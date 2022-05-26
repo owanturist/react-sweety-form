@@ -1,4 +1,4 @@
-import { FormValue, FormShape, FormList } from "../src"
+import { FormField, FormShape, FormList } from "../src"
 
 describe("FormValue#getValue()", () => {
   it.concurrent("returns the stored value", () => {
@@ -6,14 +6,14 @@ describe("FormValue#getValue()", () => {
       foo: "bar",
     }
 
-    expect(FormValue.of(value).getValue()).toBe(value)
+    expect(FormField.of(value).getValue()).toBe(value)
   })
 
   it.concurrent("returns the selected value", () => {
     const value = {
       foo: "bar",
     }
-    const formValue = FormValue.of(value)
+    const formValue = FormField.of(value)
 
     expect(formValue.getValue((x) => x)).toBe(value)
     expect(formValue.getValue((x) => x.foo)).toBe("bar")
@@ -22,7 +22,7 @@ describe("FormValue#getValue()", () => {
 
 describe("FormValue#setValue()", () => {
   it.concurrent("replaces the stored value", () => {
-    const formValue = FormValue.of({ foo: "bar" })
+    const formValue = FormField.of({ foo: "bar" })
     const nextValue = {
       foo: "baz",
     }
@@ -33,7 +33,7 @@ describe("FormValue#setValue()", () => {
   })
 
   it.concurrent("provides the stored value to transform", () => {
-    const formValue = FormValue.of(0)
+    const formValue = FormField.of(0)
 
     formValue.setValue((x) => x + 1)
 
@@ -43,7 +43,7 @@ describe("FormValue#setValue()", () => {
 
 describe("FormValue#getError()", () => {
   it.concurrent("returns null when stored is not stored", () => {
-    expect(FormValue.of({}).getError()).toBeNull()
+    expect(FormField.of({}).getError()).toBeNull()
   })
 
   it.concurrent("returns the stored error", () => {
@@ -51,21 +51,21 @@ describe("FormValue#getError()", () => {
       foo: "bar",
     }
 
-    expect(FormValue.of({}, { error }).getError()).toBe(error)
+    expect(FormField.of({}, { error }).getError()).toBe(error)
   })
 
   it.concurrent("returns the selected error", () => {
     const error = {
       foo: "bar",
     }
-    const formValue = FormValue.of({}, { error })
+    const formValue = FormField.of({}, { error })
 
     expect(formValue.getError((x) => x)).toBe(error)
     expect(formValue.getError((x) => x?.foo)).toBe("bar")
   })
 
   it.concurrent("returns null when selecting not stored error", () => {
-    const formValue = FormValue.of<string, { foo: string }>("")
+    const formValue = FormField.of<string, { foo: string }>("")
 
     expect(formValue.getError((x) => x)).toBeNull()
     expect(formValue.getError((x) => x?.foo)).toBeUndefined()
@@ -74,7 +74,7 @@ describe("FormValue#getError()", () => {
 
 describe("FormValue#setError()", () => {
   it.concurrent("replaces the stored error", () => {
-    const formValue = FormValue.of({}, { error: { foo: "bar" } })
+    const formValue = FormField.of({}, { error: { foo: "bar" } })
     const nextError = {
       foo: "baz",
     }
@@ -85,7 +85,7 @@ describe("FormValue#setError()", () => {
   })
 
   it.concurrent("provides the stored error to transform", () => {
-    const formValue = FormValue.of({}, { error: 0 })
+    const formValue = FormField.of({}, { error: 0 })
 
     formValue.setError((x) => (x ?? -1) + 1)
 
@@ -93,7 +93,7 @@ describe("FormValue#setError()", () => {
   })
 
   it.concurrent("provides null when error is not stored", () => {
-    const formValue = FormValue.of<string, number>("")
+    const formValue = FormField.of<string, number>("")
 
     formValue.setError((x) => (x ?? -1) + 1)
 
@@ -103,8 +103,8 @@ describe("FormValue#setError()", () => {
 
 describe("FormShape#getValue()", () => {
   it.concurrent("returns shape of FormValue", () => {
-    const foo = FormValue.of("foo")
-    const bar = FormValue.of("bar")
+    const foo = FormField.of("foo")
+    const bar = FormField.of("bar")
     const form = FormShape.of({ foo, bar })
 
     expect(form.getValue()).toStrictEqual({
@@ -127,8 +127,8 @@ describe("FormShape#getValue()", () => {
 
   it.concurrent("returns selected shape of FormValue", () => {
     const fooValue = { baz: 1 }
-    const foo = FormValue.of(fooValue)
-    const bar = FormValue.of("bar")
+    const foo = FormField.of(fooValue)
+    const bar = FormField.of("bar")
     const form = FormShape.of({ foo, bar })
 
     expect(form.getValue((x) => x.foo)).toBe(fooValue)
@@ -148,11 +148,11 @@ describe("FormShape#getValue()", () => {
 
   it.concurrent("returns nested FormShape", () => {
     const foo = FormShape.of({
-      bar: FormValue.of(1),
+      bar: FormField.of(1),
     })
 
     const baz = FormShape.of({
-      baz: FormValue.of("baz"),
+      baz: FormField.of("baz"),
       foo,
     })
 
@@ -168,10 +168,10 @@ describe("FormShape#getValue()", () => {
   })
 
   it.concurrent("returns nested FormList", () => {
-    const foo = FormList.of([FormValue.of(1), FormValue.of(2)])
+    const foo = FormList.of([FormField.of(1), FormField.of(2)])
 
     const baz = FormShape.of({
-      baz: FormValue.of("baz"),
+      baz: FormField.of("baz"),
       foo,
     })
 
@@ -191,8 +191,8 @@ describe("FormShape#getError()", () => {
     "returns null when neither fields nor shape don't have errors",
     () => {
       const form = FormShape.of({
-        foo: FormValue.of("foo"),
-        bar: FormValue.of("bar"),
+        foo: FormField.of("foo"),
+        bar: FormField.of("bar"),
       })
 
       expect(form.getError()).toBeNull()
@@ -205,8 +205,8 @@ describe("FormShape#getError()", () => {
     () => {
       const form = FormShape.of(
         {
-          foo: FormValue.of("foo"),
-          bar: FormValue.of("bar"),
+          foo: FormField.of("foo"),
+          bar: FormField.of("bar"),
         },
         { error: "err" },
       )
@@ -223,8 +223,8 @@ describe("FormShape#getError()", () => {
   it.concurrent("returns both shape and fields errors", () => {
     const form = FormShape.of(
       {
-        foo: FormValue.of("foo", { error: 1 }),
-        bar: FormValue.of("bar", { error: "1" }),
+        foo: FormField.of("foo", { error: 1 }),
+        bar: FormField.of("bar", { error: "1" }),
       },
       { error: "err" },
     )
@@ -239,8 +239,8 @@ describe("FormShape#getError()", () => {
   })
 
   it.concurrent("returns selected error", () => {
-    const foo = FormValue.of("foo", { error: 1 })
-    const bar = FormValue.of("bar", { error: "1" })
+    const foo = FormField.of("foo", { error: 1 })
+    const bar = FormField.of("bar", { error: "1" })
     const form = FormShape.of({ foo, bar }, { error: "err" })
 
     expect(form.getError()).toStrictEqual({
@@ -322,15 +322,15 @@ describe("FormShape#getError()", () => {
   it.concurrent("returns nested FormShape errors", () => {
     const foo = FormShape.of(
       {
-        bar: FormValue.of(1, { error: false }),
-        baz: FormValue.of(2),
+        bar: FormField.of(1, { error: false }),
+        baz: FormField.of(2),
       },
       { error: "foo" },
     )
 
     const baz = FormShape.of(
       {
-        baz: FormValue.of("baz", { error: 1 }),
+        baz: FormField.of("baz", { error: 1 }),
         foo,
       },
       { error: "baz" },
@@ -354,13 +354,13 @@ describe("FormShape#getError()", () => {
 
   it.concurrent("returns nested FormList errors", () => {
     const foo = FormList.of(
-      [FormValue.of(1), FormValue.of(2, { error: "2" })],
+      [FormField.of(1), FormField.of(2, { error: "2" })],
       { error: "foo" },
     )
 
     const baz = FormShape.of(
       {
-        baz: FormValue.of("baz", { error: 1 }),
+        baz: FormField.of("baz", { error: 1 }),
         foo,
       },
       { error: "baz" },
@@ -383,8 +383,8 @@ describe("FormShape#getError()", () => {
 describe("FormShape#fields", () => {
   it.concurrent("updates fields' values", () => {
     const form = FormShape.of({
-      foo: FormValue.of("foo"),
-      bar: FormValue.of("bar"),
+      foo: FormField.of("foo"),
+      bar: FormField.of("bar"),
     })
 
     expect(form.getValue()).toStrictEqual({
@@ -408,8 +408,8 @@ describe("FormShape#fields", () => {
   it.concurrent("updates fields' errors", () => {
     const form = FormShape.of(
       {
-        foo: FormValue.of("foo", { error: 1 }),
-        bar: FormValue.of("bar", { error: "1" }),
+        foo: FormField.of("foo", { error: 1 }),
+        bar: FormField.of("bar", { error: "1" }),
       },
       { error: "err" },
     )
@@ -442,8 +442,8 @@ describe("FormShape#fields", () => {
 
 describe("FormList#getValue()", () => {
   it.concurrent("returns items of FormValue", () => {
-    const foo = FormValue.of("foo")
-    const bar = FormValue.of("bar")
+    const foo = FormField.of("foo")
+    const bar = FormField.of("bar")
     const form = FormList.of([foo, bar])
 
     expect(form.getValue()).toStrictEqual(["foo", "bar"])
@@ -458,8 +458,8 @@ describe("FormList#getValue()", () => {
   it.concurrent("returns selected items of FormValue", () => {
     const fooValue = { baz: 1 }
     const barValue = { baz: 2 }
-    const foo = FormValue.of(fooValue)
-    const bar = FormValue.of(barValue)
+    const foo = FormField.of(fooValue)
+    const bar = FormField.of(barValue)
     const form = FormList.of([foo, bar])
 
     expect(form.getValue((x) => x.at(0))).toBe(fooValue)
@@ -482,10 +482,10 @@ describe("FormList#getValue()", () => {
   it.concurrent("returns nested FormShape", () => {
     const baz = FormList.of([
       FormShape.of({
-        bar: FormValue.of(1),
+        bar: FormField.of(1),
       }),
       FormShape.of({
-        bar: FormValue.of(2),
+        bar: FormField.of(2),
       }),
     ])
 
@@ -498,8 +498,8 @@ describe("FormList#getValue()", () => {
 
   it.concurrent("returns nested FormList", () => {
     const baz = FormList.of([
-      FormList.of([FormValue.of(1), FormValue.of(2)]),
-      FormList.of([FormValue.of(3), FormValue.of(4)]),
+      FormList.of([FormField.of(1), FormField.of(2)]),
+      FormList.of([FormField.of(3), FormField.of(4)]),
     ])
 
     expect(baz.getValue()).toStrictEqual([
@@ -519,7 +519,7 @@ describe("FormList#getError()", () => {
   it.concurrent(
     "returns null when neither fields nor shape don't have errors",
     () => {
-      const form = FormList.of([FormValue.of("foo"), FormValue.of("bar")])
+      const form = FormList.of([FormField.of("foo"), FormField.of("bar")])
 
       expect(form.getError()).toBeNull()
       expect(form.getError((x) => x)).toBeNull()
@@ -529,7 +529,7 @@ describe("FormList#getError()", () => {
   it.concurrent(
     "returns items:null when items don't have errors but list does",
     () => {
-      const form = FormList.of([FormValue.of("foo"), FormValue.of("bar")], {
+      const form = FormList.of([FormField.of("foo"), FormField.of("bar")], {
         error: "err",
       })
 
@@ -543,8 +543,8 @@ describe("FormList#getError()", () => {
   )
 
   it.concurrent("returns both list and items errors", () => {
-    const foo = FormValue.of("foo", { error: 1 })
-    const bar = FormValue.of("bar", { error: 2 })
+    const foo = FormField.of("foo", { error: 1 })
+    const bar = FormField.of("bar", { error: 2 })
     const form = FormList.of([foo, bar], { error: "err" })
 
     expect(form.getError()).toStrictEqual({
@@ -554,8 +554,8 @@ describe("FormList#getError()", () => {
   })
 
   it.concurrent("returns selected error", () => {
-    const foo = FormValue.of("foo", { error: 1 })
-    const bar = FormValue.of("bar", { error: 2 })
+    const foo = FormField.of("foo", { error: 1 })
+    const bar = FormField.of("bar", { error: 2 })
     const form = FormList.of([foo, bar], { error: "err" })
 
     expect(form.getError()).toStrictEqual({
@@ -619,8 +619,8 @@ describe("FormList#getError()", () => {
   it.concurrent("returns nested FormShape errors", () => {
     const foo = FormShape.of(
       {
-        bar: FormValue.of(1, { error: false }),
-        baz: FormValue.of(2),
+        bar: FormField.of(1, { error: false }),
+        baz: FormField.of(2),
       },
       { error: "foo" },
     )
@@ -629,8 +629,8 @@ describe("FormList#getError()", () => {
       [
         foo,
         FormShape.of({
-          bar: FormValue.of(3),
-          baz: FormValue.of(4),
+          bar: FormField.of(3),
+          baz: FormField.of(4),
         }),
       ],
       { error: "baz" },
@@ -654,12 +654,12 @@ describe("FormList#getError()", () => {
 
   it.concurrent("returns nested FormList errors", () => {
     const foo = FormList.of(
-      [FormValue.of(3), FormValue.of(4, { error: "2" })],
+      [FormField.of(3), FormField.of(4, { error: "2" })],
       { error: "foo" },
     )
 
     const baz = FormList.of(
-      [FormList.of([FormValue.of(1), FormValue.of(2)]), foo],
+      [FormList.of([FormField.of(1), FormField.of(2)]), foo],
       { error: "baz" },
     )
 
@@ -679,7 +679,7 @@ describe("FormList#getError()", () => {
 
 describe("FormList#updateItems()", () => {
   it.concurrent("updates items' values", () => {
-    const form = FormList.of([FormValue.of("foo"), FormValue.of("bar")])
+    const form = FormList.of([FormField.of("foo"), FormField.of("bar")])
 
     expect(form.getValue()).toStrictEqual(["foo", "bar"])
 
@@ -692,7 +692,7 @@ describe("FormList#updateItems()", () => {
 
   it.concurrent("updates fields' errors", () => {
     const form = FormList.of(
-      [FormValue.of("foo", { error: 1 }), FormValue.of("bar", { error: 2 })],
+      [FormField.of("foo", { error: 1 }), FormField.of("bar", { error: 2 })],
       { error: "err" },
     )
 
@@ -722,11 +722,11 @@ describe("FormList#updateItems()", () => {
 
   it.concurrent("modifies list", () => {
     const form = FormList.of(
-      [FormValue.of("foo", { error: 1 }), FormValue.of("bar", { error: 2 })],
+      [FormField.of("foo", { error: 1 }), FormField.of("bar", { error: 2 })],
       { error: "err" },
     )
 
-    form.updateItems((x) => [...x, FormValue.of("baz")])
+    form.updateItems((x) => [...x, FormField.of("baz")])
 
     expect(form.getValue()).toStrictEqual(["foo", "bar", "baz"])
     expect(form.getError()).toStrictEqual({
@@ -736,7 +736,7 @@ describe("FormList#updateItems()", () => {
 
     form.updateItems((x) => [
       ...x.slice(1),
-      FormValue.of("carabaz", { error: 3 }),
+      FormField.of("carabaz", { error: 3 }),
     ])
     expect(form.getValue()).toStrictEqual(["bar", "baz", "carabaz"])
     expect(form.getError()).toStrictEqual({

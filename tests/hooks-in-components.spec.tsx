@@ -3,19 +3,19 @@ import { render, screen, fireEvent } from "@testing-library/react"
 
 import {
   Validate,
-  FormValue,
-  useFormValue,
-  useGetFormError,
+  FormField,
+  useFormField,
+  useFormError,
   useSweetyForm,
   FormShape,
 } from "../src"
 
 const Input: React.FC<{
-  state: FormValue<string, string>
+  state: FormField<string, string>
   validate: Validate<string, string>
 }> = ({ state, validate, ...props }) => {
-  const [value, setValue] = useFormValue(state, { validate })
-  const error = useGetFormError(state)
+  const [value, setValue] = useFormField(state, { validate })
+  const [error] = useFormError(state)
 
   return (
     <>
@@ -48,9 +48,9 @@ describe("LoginForm", () => {
   })
 
   abstract class LoginFormShape extends FormShape<{
-    email: FormValue<string, string>
+    email: FormField<string, string>
 
-    password: FormValue<string, string>
+    password: FormField<string, string>
   }> {
     public static init({
       email,
@@ -60,8 +60,8 @@ describe("LoginForm", () => {
       password: string
     }): LoginFormShape {
       return FormShape.of({
-        email: FormValue.of(email),
-        password: FormValue.of(password),
+        email: FormField.of(email),
+        password: FormField.of(password),
       })
     }
   }

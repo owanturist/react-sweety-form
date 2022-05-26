@@ -44,7 +44,12 @@ export interface SweetyForm<TValue, TError = null> {
   ): TResult
 }
 
-type UnpackFormValue<TForm> = TForm extends FormValue<
+export type FormShapeRecord<TShape = unknown> = Record<
+  keyof TShape,
+  SweetyForm<unknown, unknown>
+>
+
+type UnpackFormValue<TForm> = TForm extends FormField<
   infer TValue,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   infer _TError
@@ -58,13 +63,11 @@ type UnpackFormValue<TForm> = TForm extends FormValue<
   ? ReadonlyArray<UnpackFormValue<TItem>>
   : never
 
-type UnpackFormShapeValue<
-  TShape extends Record<keyof TShape, SweetyForm<unknown, unknown>>,
-> = Compute<{
+type UnpackFormShapeValue<TShape extends FormShapeRecord<TShape>> = Compute<{
   readonly [TKey in keyof TShape]: UnpackFormValue<TShape[TKey]>
 }>
 
-type UnpackFormError<TForm> = TForm extends FormValue<
+type UnpackFormError<TForm> = TForm extends FormField<
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   infer _TValue,
   infer TError
@@ -76,14 +79,12 @@ type UnpackFormError<TForm> = TForm extends FormValue<
   ? FormListError<TItem, TError>
   : never
 
-type UnpackFormShapeError<
-  TShape extends Record<keyof TShape, SweetyForm<unknown, unknown>>,
-> = Compute<{
+type UnpackFormShapeError<TShape extends FormShapeRecord<TShape>> = Compute<{
   readonly [TKey in keyof TShape]: null | UnpackFormError<TShape[TKey]>
 }>
 
 type FormShapeError<
-  TShape extends Record<keyof TShape, SweetyForm<unknown, unknown>>,
+  TShape extends FormShapeRecord<TShape>,
   TError = null,
 > = Compute<{
   readonly shape: null | WhenUnknown<null, TError>
@@ -102,18 +103,18 @@ type FormListError<
 // F O R M   V A L U E
 // -------------------
 
-interface FormValueOfOptions<TError = null> {
+interface FormFieldOfOptions<TError = null> {
   error?: null | TError
 }
 
-export class FormValue<TValue, TError = null>
+export class FormField<TValue, TError = null>
   implements SweetyForm<TValue, TError>
 {
   public static of<TValue, TError = null>(
     value: TValue,
-    { error = null }: FormValueOfOptions<TError> = {},
-  ): FormValue<TValue, TError> {
-    return new FormValue(Sweety.of(value), Sweety.of(error))
+    { error = null }: FormFieldOfOptions<TError> = {},
+  ): FormField<TValue, TError> {
+    return new FormField(Sweety.of(value), Sweety.of(error))
   }
 
   protected constructor(
@@ -154,18 +155,11 @@ interface FormShapeOfOptions<TError = null> {
   error?: null | TError
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-
-export class FormShape<
-  TShape extends Record<keyof TShape, SweetyForm<unknown, unknown>>,
-  TError = null,
-> implements
+export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
+  implements
     SweetyForm<UnpackFormShapeValue<TShape>, FormShapeError<TShape, TError>>
 {
-  public static of<
-    TShape extends Record<keyof TShape, SweetyForm<unknown, unknown>>,
-    TError = null,
-  >(
+  public static of<TShape extends FormShapeRecord<TShape>, TError = null>(
     fields: TShape,
     { error = null }: FormShapeOfOptions<TError> = {},
   ): FormShape<TShape, TError> {
@@ -294,7 +288,6 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
   }
 
   public updateItems(
-    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
     callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
   ): void {
     this.items.setState((items) => {
@@ -305,8 +298,12 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
   }
 }
 
+// ---------
+// H O O K S
+// ---------
+
 const throwOnRenderCall: (...args: Array<never>) => unknown = () => {
-  throw new Error("You can not call useEvent callback during render phase.")
+  throw new Error("The useEvent's callback cannot call during render phase.")
 }
 
 const useEvent = <THandler extends (...args: Array<never>) => unknown>(
@@ -323,28 +320,58 @@ const useEvent = <THandler extends (...args: Array<never>) => unknown>(
   return useRef(((...args) => handlerRef.current(...args)) as THandler).current
 }
 
-// TODO change name, as well as SweetyForm#getValue #setValue
-// it should not interfere with the FormValue
-export function useGetFormValue<TValue, TResult = TValue>(
-  form: SweetyForm<TValue, unknown>,
-  select?: (value: TValue) => TResult,
-  compare?: Compare<TResult>,
-): TResult {
-  return useWatchSweety(
-    useCallback(() => form.getValue(select), [form, select]),
-    compare,
-  )
+export interface UseFormErrorOptions<TError, TResult = null | TError> {
+  compare?: Compare<TResult>
+  select?: Transform<null | TError, TResult>
 }
 
-export function useGetFormError<TError, TResult = null | TError>(
+export interface UseFormErrorHook {
+  <TError, TResult = null | TError>(
+    formField: FormField<any, TError>,
+    options?: UseFormErrorOptions<TError, TResult>,
+  ): [TResult, Dispatch<SetStateAction<null | TError>>]
+
+  <
+    TError,
+    TShape extends FormShapeRecord<TShape> = FormShapeRecord,
+    TResult = null | FormShapeError<TShape, TError>,
+  >(
+    formShape: FormShape<TShape, TError>,
+    options?: UseFormErrorOptions<FormShapeError<TShape, TError>, TResult>,
+  ): [TResult, Dispatch<SetStateAction<null | TError>>]
+
+  <
+    TError,
+    TItem extends SweetyForm<unknown, unknown> = SweetyForm<unknown, unknown>,
+    TResult = null | FormListError<TItem, TError>,
+  >(
+    formList: FormList<TItem, TError>,
+    options?: UseFormErrorOptions<FormListError<TItem, TError>, TResult>,
+  ): [TResult, Dispatch<SetStateAction<null | TError>>]
+}
+
+export const useFormError: UseFormErrorHook = <TError, TResult = null | TError>(
   form: SweetyForm<unknown, TError>,
-  select?: (error: null | TError) => TResult,
-  compare?: Compare<TResult>,
-): TResult {
-  return useWatchSweety(
+  { compare, select }: UseFormErrorOptions<TError, TResult> = {},
+): [TResult, Dispatch<SetStateAction<null | TError>>] => {
+  const error = useWatchSweety(
     useCallback(() => form.getError(select), [form, select]),
     compare,
   )
+
+  const setError = useEvent(
+    (transformOrError: SetStateAction<null | TError>): void => {
+      if (form instanceof FormField) {
+        form.setError(transformOrError)
+      } else if (form instanceof FormShape) {
+        form.setShapeError(transformOrError)
+      } else if (form instanceof FormList) {
+        form.setListError(transformOrError)
+      }
+    },
+  )
+
+  return [error, setError]
 }
 
 export interface UseFormValueOptions<TValue, TError = null, TResult = TValue> {
@@ -353,8 +380,8 @@ export interface UseFormValueOptions<TValue, TError = null, TResult = TValue> {
   validate?: Validate<TValue, TError>
 }
 
-export function useFormValue<TValue, TError = null, TResult = TValue>(
-  formValue: FormValue<TValue, TError>,
+export function useFormField<TValue, TError = null, TResult = TValue>(
+  formValue: FormField<TValue, TError>,
   {
     select,
     compare,
@@ -391,7 +418,6 @@ export function useFormList<
   compare?: Compare<TResult>,
 ): [
   TResult,
-  // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   Dispatch<(items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>>,
 ] {
   const items = useWatchSweety(
@@ -400,7 +426,6 @@ export function useFormList<
   )
   const setItems = useEvent(
     (
-      // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
       callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
     ): void => {
       formList.updateItems(callback)
