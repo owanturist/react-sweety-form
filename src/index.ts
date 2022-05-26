@@ -28,10 +28,23 @@ const alwaysNull = (): null => null
 
 const identity = <T>(value: T): T => value
 
+export type FormReValidateMode = "onChange" | "onBlur" | "onSubmit"
+
+export type FormValidateMode = FormReValidateMode | "onTouched" | "all"
+
+class FormContext {
+  public constructor(
+    private readonly validateMode: Sweety<FormValidateMode>,
+    private readonly reValidateMode: Sweety<FormReValidateMode>,
+  ) {}
+}
+
 export interface SweetyForm<TValue, TError = null> {
   getValue(): TValue
 
   getError(): null | TError
+
+  setContext(context: FormContext): void
 }
 
 export type FormShapeRecord<TShape = unknown> = Record<
@@ -107,10 +120,16 @@ export class FormField<TValue, TError = null>
     return new FormField(Sweety.of(value), Sweety.of(error))
   }
 
+  private context: FormContext | null = null
+
   protected constructor(
     private readonly value: Sweety<TValue>,
     private readonly error: Sweety<null | TError>,
   ) {}
+
+  public setContext(context: FormContext): void {
+    this.context = context
+  }
 
   public getValue(): TValue {
     return this.value.getState()
@@ -152,10 +171,26 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     return new FormShape(entries, Sweety.of(error))
   }
 
+  private context: FormContext | null = null
+
   protected constructor(
     public readonly entries: TShape,
     private readonly error: Sweety<null | TError>,
   ) {}
+
+  public setContext(context: FormContext): void {
+    if (this.context != null) {
+      return
+    }
+
+    this.context = context
+
+    const entries = Object.values<SweetyForm<unknown, unknown>>(this.entries)
+
+    for (const entry of entries) {
+      entry.setContext(context)
+    }
+  }
 
   public getValue(): UnpackFormShapeValue<TShape> {
     const acc = {} as UnpackFormShapeValue<TShape>
@@ -219,10 +254,29 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
     return new FormList(Sweety.of(items), Sweety.of(error))
   }
 
+  private context: FormContext | null = null
+
   protected constructor(
     private readonly items: Sweety<ReadonlyArray<TItem>>,
     private readonly error: Sweety<null | TError>,
   ) {}
+
+  private spreadContext(): void {
+    if (this.context == null) {
+      return
+    }
+
+    for (const item of this.items.getState()) {
+      item.setContext(this.context)
+    }
+  }
+
+  public setContext(context: FormContext): void {
+    if (this.context == null) {
+      this.context = context
+      this.spreadContext()
+    }
+  }
 
   public getValue(): ReadonlyArray<UnpackFormValue<TItem>> {
     return this.items
@@ -263,14 +317,13 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
     return this.items.getState(select!)
   }
 
+  // returns an array when it needs to modify the list
+  // returns void when modifies items
   public updateItems(
     callback: (items: ReadonlyArray<TItem>) => void | ReadonlyArray<TItem>,
   ): void {
-    this.items.setState((items) => {
-      const nextItems = callback(items)
-
-      return nextItems || items
-    })
+    this.items.setState((items) => callback(items) || items)
+    this.spreadContext()
   }
 }
 
@@ -413,10 +466,6 @@ export function useFormList<
 
   return [items, setItems]
 }
-
-export type FormReValidateMode = "onChange" | "onBlur" | "onSubmit"
-
-export type FormValidateMode = FormReValidateMode | "onTouched" | "all"
 
 export type SweetyFormOnSubmit<TForm extends SweetyForm<unknown, unknown>> = (
   value: UnpackFormValue<TForm>,
