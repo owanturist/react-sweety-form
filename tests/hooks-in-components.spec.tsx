@@ -31,7 +31,7 @@ const Input: React.FC<{
 }
 
 describe("LoginForm", () => {
-  const validateEmail = vi.fn((email: string): null | string => {
+  const validateEmail = vi.fn((email: string) => {
     if (email.includes("@")) {
       return null
     }
@@ -39,7 +39,7 @@ describe("LoginForm", () => {
     return "Invalid email"
   })
 
-  const validatePassword = vi.fn((password: string): null | string => {
+  const validatePassword = vi.fn((password: string) => {
     if (password.length > 5) {
       return null
     }
@@ -68,8 +68,15 @@ describe("LoginForm", () => {
 
   const LoginForm: React.FC<{
     form: LoginFormShape
+    validateEmail?: Validate<string, string>
+    validatePassword?: Validate<string, string>
     onSubmit?: VoidFunction
-  }> = ({ form: initialForm, onSubmit = vi.fn() }) => {
+  }> = ({
+    form: initialForm,
+    validateEmail: validateEmailProp = validateEmail,
+    validatePassword: validatePasswordProp = validatePassword,
+    onSubmit = vi.fn(),
+  }) => {
     const { form, submit } = useSweetyForm(() => initialForm, { onSubmit })
 
     return (
@@ -77,12 +84,12 @@ describe("LoginForm", () => {
         <Input
           data-testid="email"
           state={form.fields.email}
-          validate={validateEmail}
+          validate={validateEmailProp}
         />
         <Input
           data-testid="password"
           state={form.fields.password}
-          validate={validatePassword}
+          validate={validatePasswordProp}
         />
         <button type="submit" />
       </form>
@@ -223,5 +230,26 @@ describe("LoginForm", () => {
       form,
       expect.anything(),
     )
+  })
+
+  it("should re-validate when validate function changes", () => {
+    const form = LoginFormShape.init({
+      email: "foo",
+      password: "qwe",
+    })
+    const validateShortEmail = vi.fn((email: string) => {
+      return email.length > 3 ? null : "Too short email"
+    })
+
+    const { rerender } = render(<LoginForm form={form} />)
+
+    expect(screen.getByText("Invalid email")).toBeInTheDocument()
+
+    rerender(<LoginForm form={form} validateEmail={validateShortEmail} />)
+
+    expect(screen.queryByText("Invalid email")).not.toBeInTheDocument()
+    expect(screen.getByText("Too short email")).toBeInTheDocument()
+    expect(validateShortEmail).toHaveBeenCalledTimes(1)
+    expect(validateShortEmail).toHaveBeenLastCalledWith("foo", "Invalid email")
   })
 })
