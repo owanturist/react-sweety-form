@@ -88,7 +88,7 @@ type FormShapeError<
   TError = null,
 > = Compute<{
   readonly shape: null | WhenUnknown<null, TError>
-  readonly fields: null | UnpackFormShapeError<TShape>
+  readonly entries: null | UnpackFormShapeError<TShape>
 }>
 
 type FormListError<
@@ -160,14 +160,14 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     SweetyForm<UnpackFormShapeValue<TShape>, FormShapeError<TShape, TError>>
 {
   public static of<TShape extends FormShapeRecord<TShape>, TError = null>(
-    fields: TShape,
+    entries: TShape,
     { error = null }: FormShapeOfOptions<TError> = {},
   ): FormShape<TShape, TError> {
-    return new FormShape(fields, Sweety.of(error))
+    return new FormShape(entries, Sweety.of(error))
   }
 
   protected constructor(
-    public readonly fields: TShape,
+    public readonly entries: TShape,
     private readonly error: Sweety<null | TError>,
   ) {}
 
@@ -176,7 +176,7 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     select?: (shape: UnpackFormShapeValue<TShape>) => TResult,
   ): TResult {
     const acc = {} as UnpackFormShapeValue<TShape>
-    const pairs = Object.entries(this.fields) as Array<
+    const pairs = Object.entries(this.entries) as Array<
       [keyof TShape, SweetyForm<unknown, unknown>]
     >
 
@@ -191,14 +191,14 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     select?: (error: null | FormShapeError<TShape, TError>) => TResult,
   ): TResult {
     let hasFieldErrors = false
-    const fields = {} as UnpackFormShapeError<TShape>
-    const pairs = Object.entries(this.fields) as Array<
+    const entries = {} as UnpackFormShapeError<TShape>
+    const pairs = Object.entries(this.entries) as Array<
       [keyof TShape, SweetyForm<unknown, unknown>]
     >
 
     for (const [key, field] of pairs) {
-      fields[key] = field.getError()
-      hasFieldErrors = hasFieldErrors || fields[key] != null
+      entries[key] = field.getError()
+      hasFieldErrors = hasFieldErrors || entries[key] != null
     }
 
     const shapeError = this.error.getState()
@@ -209,7 +209,7 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
 
     return selectSafe(select, {
       shape: shapeError as WhenUnknown<null, TError>,
-      fields: hasFieldErrors ? fields : null,
+      entries: hasFieldErrors ? entries : null,
     })
   }
 
