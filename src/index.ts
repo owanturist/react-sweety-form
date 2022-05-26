@@ -24,24 +24,14 @@ export type Validate<TValue, TError = null> = (
   error: null | TError,
 ) => null | TError
 
-// TODO delete unsesesary selects
-const selectSafe = <TValue, TResult = TValue>(
-  select: undefined | Transform<TValue, TResult>,
-  value: TValue,
-): TResult => {
-  return typeof select === "function"
-    ? select(value)
-    : (value as unknown as TResult)
-}
-
 const alwaysNull = (): null => null
 
-export interface SweetyForm<TValue, TError = null> {
-  getValue<TResult = TValue>(select?: (value: TValue) => TResult): TResult
+const identity = <T>(value: T): T => value
 
-  getError<TResult = null | TError>(
-    select?: (error: null | TError) => TResult,
-  ): TResult
+export interface SweetyForm<TValue, TError = null> {
+  getValue(): TValue
+
+  getError(): null | TError
 }
 
 export type FormShapeRecord<TShape = unknown> = Record<
@@ -122,10 +112,8 @@ export class FormField<TValue, TError = null>
     private readonly error: Sweety<null | TError>,
   ) {}
 
-  public getValue<TResult = TValue>(
-    select?: (value: TValue) => TResult,
-  ): TResult {
-    return this.value.getState(select!)
+  public getValue(): TValue {
+    return this.value.getState()
   }
 
   public setValue(transform: (value: TValue) => TValue): void
@@ -134,10 +122,8 @@ export class FormField<TValue, TError = null>
     this.value.setState(transformOrValue)
   }
 
-  public getError<TResult = null | TError>(
-    select?: (error: null | TError) => TResult,
-  ): TResult {
-    return this.error.getState(select!)
+  public getError(): null | TError {
+    return this.error.getState()
   }
 
   public setError(transform: (error: null | TError) => null | TError): void
@@ -171,25 +157,20 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     private readonly error: Sweety<null | TError>,
   ) {}
 
-  public getValue<TResult = UnpackFormShapeValue<TShape>>(
-    // TODO not sure it is needed, anywhere
-    select?: (shape: UnpackFormShapeValue<TShape>) => TResult,
-  ): TResult {
+  public getValue(): UnpackFormShapeValue<TShape> {
     const acc = {} as UnpackFormShapeValue<TShape>
     const pairs = Object.entries(this.entries) as Array<
       [keyof TShape, SweetyForm<unknown, unknown>]
     >
 
     for (const [key, field] of pairs) {
-      acc[key] = field.getValue()
+      acc[key] = field.getValue() as UnpackFormValue<TShape[keyof TShape]>
     }
 
-    return selectSafe(select, acc)
+    return acc
   }
 
-  public getError<TResult = null | FormShapeError<TShape, TError>>(
-    select?: (error: null | FormShapeError<TShape, TError>) => TResult,
-  ): TResult {
+  public getError(): null | FormShapeError<TShape, TError> {
     let hasFieldErrors = false
     const entries = {} as UnpackFormShapeError<TShape>
     const pairs = Object.entries(this.entries) as Array<
@@ -197,20 +178,20 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     >
 
     for (const [key, field] of pairs) {
-      entries[key] = field.getError()
+      entries[key] = field.getError() as UnpackFormError<TShape[keyof TShape]>
       hasFieldErrors = hasFieldErrors || entries[key] != null
     }
 
     const shapeError = this.error.getState()
 
     if (shapeError == null && !hasFieldErrors) {
-      return selectSafe(select, null)
+      return null
     }
 
-    return selectSafe(select, {
+    return {
       shape: shapeError as WhenUnknown<null, TError>,
       entries: hasFieldErrors ? entries : null,
-    })
+    }
   }
 
   public setShapeError(transform: (error: null | TError) => null | TError): void
@@ -243,36 +224,31 @@ export class FormList<TItem extends SweetyForm<unknown, unknown>, TError = null>
     private readonly error: Sweety<null | TError>,
   ) {}
 
-  public getValue<TResult = ReadonlyArray<UnpackFormValue<TItem>>>(
-    select?: (items: ReadonlyArray<UnpackFormValue<TItem>>) => TResult,
-  ): TResult {
-    return selectSafe(
-      select,
-      this.items.getState().map((item) => item.getValue()),
-    )
+  public getValue(): ReadonlyArray<UnpackFormValue<TItem>> {
+    return this.items
+      .getState()
+      .map((item) => item.getValue() as UnpackFormValue<TItem>)
   }
 
-  public getError<TResult = null | FormListError<TItem, TError>>(
-    select?: (error: null | FormListError<TItem, TError>) => TResult,
-  ): TResult {
+  public getError(): null | FormListError<TItem, TError> {
     let hasItemErrors = false
     const items = [] as Array<UnpackFormError<TItem>>
 
     for (const item of this.items.getState()) {
-      items.push(item.getError())
+      items.push(item.getError() as UnpackFormError<TItem>)
       hasItemErrors = hasItemErrors || items.at(-1) != null
     }
 
     const listError = this.error.getState()
 
     if (listError == null && !hasItemErrors) {
-      return selectSafe(select, null)
+      return null
     }
 
-    return selectSafe(select, {
+    return {
       list: listError as WhenUnknown<null, TError>,
       items: hasItemErrors ? items : null,
-    })
+    }
   }
 
   public setListError(transform: (error: null | TError) => null | TError): void
@@ -352,10 +328,13 @@ export interface UseFormErrorHook {
 
 export const useFormError: UseFormErrorHook = <TError, TResult = null | TError>(
   form: SweetyForm<unknown, TError>,
-  { compare, select }: UseFormErrorOptions<TError, TResult> = {},
+  {
+    select = identity as Transform<null | TError, TResult>,
+    compare,
+  }: UseFormErrorOptions<TError, TResult> = {},
 ): [TResult, Dispatch<SetStateAction<null | TError>>] => {
   const error = useWatchSweety(
-    useCallback(() => form.getError(select), [form, select]),
+    useCallback(() => select(form.getError()), [form, select]),
     compare,
   )
 
@@ -383,13 +362,13 @@ export interface UseFormValueOptions<TValue, TError = null, TResult = TValue> {
 export function useFormField<TValue, TError = null, TResult = TValue>(
   formValue: FormField<TValue, TError>,
   {
-    select,
+    select = identity as Transform<TValue, TResult>,
     compare,
     validate = alwaysNull,
   }: UseFormValueOptions<TValue, TError, TResult> = {},
 ): [TResult, Dispatch<SetStateAction<TValue>>] {
   const value = useWatchSweety(
-    useCallback(() => formValue.getValue(select), [formValue, select]),
+    useCallback(() => select(formValue.getValue()), [formValue, select]),
     compare,
   )
   const setValue = useEvent((valueOrTransform: SetStateAction<TValue>) => {
@@ -481,8 +460,8 @@ export function useSweetyForm<TForm extends SweetyForm<unknown, unknown>>(
 
     const form = formRef.current!
 
-    const value: UnpackFormValue<TForm> = form.getValue()
-    const error: null | UnpackFormError<TForm> = form.getError()
+    const value = form.getValue() as UnpackFormValue<TForm>
+    const error = form.getError() as null | UnpackFormError<TForm>
 
     await onSubmit?.(value, error, form, event)
   }

@@ -15,8 +15,7 @@ describe("FormValue#getValue()", () => {
     }
     const formValue = FormField.of(value)
 
-    expect(formValue.getValue((x) => x)).toBe(value)
-    expect(formValue.getValue((x) => x.foo)).toBe("bar")
+    expect(formValue.getValue()).toBe(value)
   })
 })
 
@@ -60,15 +59,13 @@ describe("FormValue#getError()", () => {
     }
     const formValue = FormField.of({}, { error })
 
-    expect(formValue.getError((x) => x)).toBe(error)
-    expect(formValue.getError((x) => x?.foo)).toBe("bar")
+    expect(formValue.getError()).toBe(error)
   })
 
   it.concurrent("returns null when selecting not stored error", () => {
     const formValue = FormField.of<string, { foo: string }>("")
 
-    expect(formValue.getError((x) => x)).toBeNull()
-    expect(formValue.getError((x) => x?.foo)).toBeUndefined()
+    expect(formValue.getError()).toBeNull()
   })
 })
 
@@ -131,19 +128,24 @@ describe("FormShape#getValue()", () => {
     const bar = FormField.of("bar")
     const form = FormShape.of({ foo, bar })
 
-    expect(form.getValue((x) => x.foo)).toBe(fooValue)
-    expect(form.getValue((x) => x.foo.baz)).toBe(1)
-    expect(form.getValue((x) => x.bar)).toBe("bar")
+    expect(form.getValue()).toStrictEqual({
+      foo: { baz: 1 },
+      bar: "bar",
+    })
+    expect(form.getValue().foo).toBe(fooValue)
 
     foo.setValue((x) => ({ ...x, baz: x.baz + 1 }))
-    expect(form.getValue((x) => x.foo)).not.toBe(fooValue)
-    expect(form.getValue((x) => x.foo)).toStrictEqual({ baz: 2 })
-    expect(form.getValue((x) => x.foo.baz)).toBe(2)
-    expect(form.getValue((x) => x.bar)).toBe("bar")
+    expect(form.getValue()).toStrictEqual({
+      foo: { baz: 2 },
+      bar: "bar",
+    })
+    expect(form.getValue().foo).not.toBe(fooValue)
 
     bar.setValue("bar2")
-    expect(form.getValue((x) => x.foo.baz)).toBe(2)
-    expect(form.getValue((x) => x.bar)).toBe("bar2")
+    expect(form.getValue()).toStrictEqual({
+      foo: { baz: 2 },
+      bar: "bar2",
+    })
   })
 
   it.concurrent("returns nested FormShape", () => {
@@ -162,9 +164,6 @@ describe("FormShape#getValue()", () => {
         bar: 1,
       },
     })
-    expect(baz.getValue((x) => x.baz)).toBe("baz")
-    expect(baz.getValue((x) => x.foo)).toStrictEqual({ bar: 1 })
-    expect(baz.getValue((x) => x.foo.bar)).toBe(1)
   })
 
   it.concurrent("returns nested FormList", () => {
@@ -179,10 +178,6 @@ describe("FormShape#getValue()", () => {
       baz: "baz",
       foo: [1, 2],
     })
-    expect(baz.getValue((x) => x.baz)).toBe("baz")
-    expect(baz.getValue((x) => x.foo)).toStrictEqual([1, 2])
-    expect(baz.getValue((x) => x.foo.at(0))).toBe(1)
-    expect(baz.getValue((x) => x.foo.at(1))).toBe(2)
   })
 })
 
@@ -196,7 +191,6 @@ describe("FormShape#getError()", () => {
       })
 
       expect(form.getError()).toBeNull()
-      expect(form.getError((x) => x)).toBeNull()
     },
   )
 
@@ -215,8 +209,6 @@ describe("FormShape#getError()", () => {
         shape: "err",
         entries: null,
       })
-      expect(form.getError((x) => x?.entries)).toBeNull()
-      expect(form.getError((x) => x?.shape)).toBe("err")
     },
   )
 
@@ -250,13 +242,6 @@ describe("FormShape#getError()", () => {
         bar: "1",
       },
     })
-    expect(form.getError((x) => x?.shape)).toBe("err")
-    expect(form.getError((x) => x?.entries)).toStrictEqual({
-      foo: 1,
-      bar: "1",
-    })
-    expect(form.getError((x) => x?.entries?.foo)).toBe(1)
-    expect(form.getError((x) => x?.entries?.bar)).toBe("1")
 
     foo.setError(2)
     expect(form.getError()).toStrictEqual({
@@ -266,13 +251,6 @@ describe("FormShape#getError()", () => {
         bar: "1",
       },
     })
-    expect(form.getError((x) => x?.shape)).toBe("err")
-    expect(form.getError((x) => x?.entries)).toStrictEqual({
-      foo: 2,
-      bar: "1",
-    })
-    expect(form.getError((x) => x?.entries?.foo)).toBe(2)
-    expect(form.getError((x) => x?.entries?.bar)).toBe("1")
 
     bar.setError(null)
     expect(form.getError()).toStrictEqual({
@@ -282,29 +260,18 @@ describe("FormShape#getError()", () => {
         bar: null,
       },
     })
-    expect(form.getError((x) => x?.shape)).toBe("err")
-    expect(form.getError((x) => x?.entries)).toStrictEqual({
-      foo: 2,
-      bar: null,
-    })
-    expect(form.getError((x) => x?.entries?.foo)).toBe(2)
-    expect(form.getError((x) => x?.entries?.bar)).toBeNull()
 
     foo.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
       entries: null,
     })
-    expect(form.getError((x) => x?.shape)).toBe("err")
-    expect(form.getError((x) => x?.entries)).toBeNull()
 
     form.setShapeError((x) => (x ?? "") + "2")
     expect(form.getError()).toStrictEqual({
       shape: "err2",
       entries: null,
     })
-    expect(form.getError((x) => x?.shape)).toBe("err2")
-    expect(form.getError((x) => x?.entries)).toBeNull()
 
     form.setShapeError(null)
     expect(form.getError()).toBeNull()
@@ -349,7 +316,6 @@ describe("FormShape#getError()", () => {
         },
       },
     })
-    expect(baz.getError((x) => x?.entries?.foo?.entries?.bar)).toBe(false)
   })
 
   it.concurrent("returns nested FormList errors", () => {
@@ -376,7 +342,6 @@ describe("FormShape#getError()", () => {
         },
       },
     })
-    expect(baz.getError((x) => x?.entries?.foo?.items?.at(1))).toBe("2")
   })
 })
 
@@ -462,21 +427,18 @@ describe("FormList#getValue()", () => {
     const bar = FormField.of(barValue)
     const form = FormList.of([foo, bar])
 
-    expect(form.getValue((x) => x.at(0))).toBe(fooValue)
-    expect(form.getValue((x) => x.at(0)?.baz)).toBe(1)
-    expect(form.getValue((x) => x.at(1))).toBe(barValue)
-    expect(form.getValue((x) => x.at(1)?.baz)).toBe(2)
+    expect(form.getValue()).toStrictEqual([{ baz: 1 }, { baz: 2 }])
+    expect(form.getValue().at(0)).toBe(fooValue)
+    expect(form.getValue().at(1)).toBe(barValue)
 
     foo.setValue((x) => ({ ...x, baz: x.baz + 2 }))
-    expect(form.getValue((x) => x.at(0))).not.toBe(fooValue)
-    expect(form.getValue((x) => x.at(0)?.baz)).toBe(3)
-    expect(form.getValue((x) => x.at(1))).toBe(barValue)
-    expect(form.getValue((x) => x.at(1)?.baz)).toBe(2)
+    expect(form.getValue()).toStrictEqual([{ baz: 3 }, { baz: 2 }])
+    expect(form.getValue().at(0)).not.toBe(fooValue)
+    expect(form.getValue().at(1)).toBe(barValue)
 
     bar.setValue({ baz: 4 })
-    expect(form.getValue((x) => x.at(0)?.baz)).toBe(3)
-    expect(form.getValue((x) => x.at(1))).not.toBe(barValue)
-    expect(form.getValue((x) => x.at(1)?.baz)).toBe(4)
+    expect(form.getValue()).toStrictEqual([{ baz: 3 }, { baz: 4 }])
+    expect(form.getValue().at(1)).not.toBe(barValue)
   })
 
   it.concurrent("returns nested FormShape", () => {
@@ -490,10 +452,6 @@ describe("FormList#getValue()", () => {
     ])
 
     expect(baz.getValue()).toStrictEqual([{ bar: 1 }, { bar: 2 }])
-    expect(baz.getValue((x) => x.at(0))).toStrictEqual({ bar: 1 })
-    expect(baz.getValue((x) => x.at(0)?.bar)).toBe(1)
-    expect(baz.getValue((x) => x.at(1))).toStrictEqual({ bar: 2 })
-    expect(baz.getValue((x) => x.at(1)?.bar)).toBe(2)
   })
 
   it.concurrent("returns nested FormList", () => {
@@ -506,12 +464,6 @@ describe("FormList#getValue()", () => {
       [1, 2],
       [3, 4],
     ])
-    expect(baz.getValue((x) => x.at(0))).toStrictEqual([1, 2])
-    expect(baz.getValue((x) => x.at(0)?.at(0))).toBe(1)
-    expect(baz.getValue((x) => x.at(0)?.at(1))).toBe(2)
-    expect(baz.getValue((x) => x.at(1))).toStrictEqual([3, 4])
-    expect(baz.getValue((x) => x.at(1)?.at(0))).toBe(3)
-    expect(baz.getValue((x) => x.at(1)?.at(1))).toBe(4)
   })
 })
 
@@ -522,7 +474,6 @@ describe("FormList#getError()", () => {
       const form = FormList.of([FormField.of("foo"), FormField.of("bar")])
 
       expect(form.getError()).toBeNull()
-      expect(form.getError((x) => x)).toBeNull()
     },
   )
 
@@ -537,8 +488,6 @@ describe("FormList#getError()", () => {
         list: "err",
         items: null,
       })
-      expect(form.getError((x) => x?.items)).toBeNull()
-      expect(form.getError((x) => x?.list)).toBe("err")
     },
   )
 
@@ -562,46 +511,30 @@ describe("FormList#getError()", () => {
       list: "err",
       items: [1, 2],
     })
-    expect(form.getError((x) => x?.list)).toBe("err")
-    expect(form.getError((x) => x?.items)).toStrictEqual([1, 2])
-    expect(form.getError((x) => x?.items?.at(0))).toBe(1)
-    expect(form.getError((x) => x?.items?.at(1))).toBe(2)
 
     foo.setError(3)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: [3, 2],
     })
-    expect(form.getError((x) => x?.list)).toBe("err")
-    expect(form.getError((x) => x?.items)).toStrictEqual([3, 2])
-    expect(form.getError((x) => x?.items?.at(0))).toBe(3)
-    expect(form.getError((x) => x?.items?.at(1))).toBe(2)
 
     bar.setError(null)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: [3, null],
     })
-    expect(form.getError((x) => x?.list)).toBe("err")
-    expect(form.getError((x) => x?.items)).toStrictEqual([3, null])
-    expect(form.getError((x) => x?.items?.at(0))).toBe(3)
-    expect(form.getError((x) => x?.items?.at(1))).toBeNull()
 
     foo.setError(null)
     expect(form.getError()).toStrictEqual({
       list: "err",
       items: null,
     })
-    expect(form.getError((x) => x?.list)).toBe("err")
-    expect(form.getError((x) => x?.items)).toBeNull()
 
     form.setListError((x) => (x ?? "") + "2")
     expect(form.getError()).toStrictEqual({
       list: "err2",
       items: null,
     })
-    expect(form.getError((x) => x?.list)).toBe("err2")
-    expect(form.getError((x) => x?.items)).toBeNull()
 
     form.setListError(null)
     expect(form.getError()).toBeNull()
@@ -649,7 +582,6 @@ describe("FormList#getError()", () => {
         null,
       ],
     })
-    expect(baz.getError((x) => x?.items?.at(0)?.entries?.bar)).toBe(false)
   })
 
   it.concurrent("returns nested FormList errors", () => {
@@ -673,7 +605,6 @@ describe("FormList#getError()", () => {
         },
       ],
     })
-    expect(baz.getError((x) => x?.items?.at(1)?.items?.at(1))).toBe("2")
   })
 })
 
