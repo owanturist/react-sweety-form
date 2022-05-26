@@ -183,7 +183,7 @@ describe("FormShape#getValue()", () => {
 
 describe("FormShape#getError()", () => {
   it.concurrent(
-    "returns null when neither entries nor shape don't have errors",
+    "returns null when neither fields nor shape don't have errors",
     () => {
       const form = FormShape.of({
         foo: FormField.of("foo"),
@@ -195,7 +195,7 @@ describe("FormShape#getError()", () => {
   )
 
   it.concurrent(
-    "returns entries:null when entries don't have errors but shape does",
+    "returns fields:null when fields don't have errors but shape does",
     () => {
       const form = FormShape.of(
         {
@@ -207,12 +207,12 @@ describe("FormShape#getError()", () => {
 
       expect(form.getError()).toStrictEqual({
         shape: "err",
-        entries: null,
+        fields: null,
       })
     },
   )
 
-  it.concurrent("returns both shape and entries errors", () => {
+  it.concurrent("returns both shape and fields errors", () => {
     const form = FormShape.of(
       {
         foo: FormField.of("foo", { error: 1 }),
@@ -223,7 +223,7 @@ describe("FormShape#getError()", () => {
 
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: 1,
         bar: "1",
       },
@@ -237,7 +237,7 @@ describe("FormShape#getError()", () => {
 
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: 1,
         bar: "1",
       },
@@ -246,7 +246,7 @@ describe("FormShape#getError()", () => {
     foo.setError(2)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: 2,
         bar: "1",
       },
@@ -255,7 +255,7 @@ describe("FormShape#getError()", () => {
     bar.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: 2,
         bar: null,
       },
@@ -264,25 +264,25 @@ describe("FormShape#getError()", () => {
     foo.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: null,
+      fields: null,
     })
 
     form.setShapeError((x) => (x ?? "") + "2")
     expect(form.getError()).toStrictEqual({
       shape: "err2",
-      entries: null,
+      fields: null,
     })
 
     form.setShapeError(null)
     expect(form.getError()).toBeNull()
   })
 
-  it.concurrent("returns entries:null when shape is empty", () => {
+  it.concurrent("returns fields:null when shape is empty", () => {
     const form = FormShape.of({}, { error: "err" })
 
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: null,
+      fields: null,
     })
   })
 
@@ -305,11 +305,11 @@ describe("FormShape#getError()", () => {
 
     expect(baz.getError()).toStrictEqual({
       shape: "baz",
-      entries: {
+      fields: {
         baz: 1,
         foo: {
           shape: "foo",
-          entries: {
+          fields: {
             bar: false,
             baz: null,
           },
@@ -334,7 +334,7 @@ describe("FormShape#getError()", () => {
 
     expect(baz.getError()).toStrictEqual({
       shape: "baz",
-      entries: {
+      fields: {
         baz: 1,
         foo: {
           list: "foo",
@@ -345,8 +345,8 @@ describe("FormShape#getError()", () => {
   })
 })
 
-describe("FormShape#entries", () => {
-  it.concurrent("updates entries' values", () => {
+describe("FormShape#fields", () => {
+  it.concurrent("updates fields' values", () => {
     const form = FormShape.of({
       foo: FormField.of("foo"),
       bar: FormField.of("bar"),
@@ -357,20 +357,20 @@ describe("FormShape#entries", () => {
       bar: "bar",
     })
 
-    form.entries.foo.setValue("foo1")
+    form.fields.foo.setValue("foo1")
     expect(form.getValue()).toStrictEqual({
       foo: "foo1",
       bar: "bar",
     })
 
-    form.entries.bar.setValue((y) => y + "2")
+    form.fields.bar.setValue((y) => y + "2")
     expect(form.getValue()).toStrictEqual({
       foo: "foo1",
       bar: "bar2",
     })
   })
 
-  it.concurrent("updates entries' errors", () => {
+  it.concurrent("updates fields' errors", () => {
     const form = FormShape.of(
       {
         foo: FormField.of("foo", { error: 1 }),
@@ -379,28 +379,28 @@ describe("FormShape#entries", () => {
       { error: "err" },
     )
 
-    form.entries.foo.setError(2)
+    form.fields.foo.setError(2)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: 2,
         bar: "1",
       },
     })
 
-    form.entries.foo.setError(null)
+    form.fields.foo.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: {
+      fields: {
         foo: null,
         bar: "1",
       },
     })
 
-    form.entries.bar.setError(null)
+    form.fields.bar.setError(null)
     expect(form.getError()).toStrictEqual({
       shape: "err",
-      entries: null,
+      fields: null,
     })
   })
 })
@@ -469,7 +469,7 @@ describe("FormList#getValue()", () => {
 
 describe("FormList#getError()", () => {
   it.concurrent(
-    "returns null when neither entries nor shape don't have errors",
+    "returns null when neither fields nor shape don't have errors",
     () => {
       const form = FormList.of([FormField.of("foo"), FormField.of("bar")])
 
@@ -574,7 +574,7 @@ describe("FormList#getError()", () => {
       items: [
         {
           shape: "foo",
-          entries: {
+          fields: {
             bar: false,
             baz: null,
           },
@@ -621,7 +621,7 @@ describe("FormList#updateItems()", () => {
     expect(form.getValue()).toStrictEqual(["foo1", "bar2"])
   })
 
-  it.concurrent("updates entries' errors", () => {
+  it.concurrent("updates fields' errors", () => {
     const form = FormList.of(
       [FormField.of("foo", { error: 1 }), FormField.of("bar", { error: 2 })],
       { error: "err" },

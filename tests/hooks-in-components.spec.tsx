@@ -83,12 +83,12 @@ describe("LoginForm", () => {
       <form onSubmit={submit}>
         <Input
           data-testid="email"
-          state={form.entries.email}
+          state={form.fields.email}
           validate={validateEmailProp}
         />
         <Input
           data-testid="password"
-          state={form.entries.password}
+          state={form.fields.password}
           validate={validatePasswordProp}
         />
         <button type="submit" />
@@ -110,9 +110,9 @@ describe("LoginForm", () => {
 
     expect(screen.getByTestId("email")).toHaveValue("")
     expect(screen.getByTestId("password")).toHaveValue("")
-    expect(form.entries.email.getError()).toBe("Invalid email")
+    expect(form.fields.email.getError()).toBe("Invalid email")
     expect(screen.getByText("Invalid email")).toBeInTheDocument()
-    expect(form.entries.password.getError()).toBe("Invalid password")
+    expect(form.fields.password.getError()).toBe("Invalid password")
     expect(screen.getByText("Invalid password")).toBeInTheDocument()
   })
 
@@ -222,7 +222,7 @@ describe("LoginForm", () => {
       },
       {
         shape: null,
-        entries: {
+        fields: {
           email: "Invalid email",
           password: "Invalid password",
         },

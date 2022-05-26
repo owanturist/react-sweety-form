@@ -91,7 +91,7 @@ type FormShapeError<
   TError = null,
 > = Compute<{
   readonly shape: null | WhenUnknown<null, TError>
-  readonly entries: null | UnpackFormShapeError<TShape>
+  readonly fields: null | UnpackFormShapeError<TShape>
 }>
 
 type FormListError<
@@ -165,16 +165,16 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
     SweetyForm<UnpackFormShapeValue<TShape>, FormShapeError<TShape, TError>>
 {
   public static of<TShape extends FormShapeRecord<TShape>, TError = null>(
-    entries: TShape,
+    fields: TShape,
     { error = null }: FormShapeOfOptions<TError> = {},
   ): FormShape<TShape, TError> {
-    return new FormShape(entries, Sweety.of(error))
+    return new FormShape(fields, Sweety.of(error))
   }
 
   private context: FormContext | null = null
 
   protected constructor(
-    public readonly entries: TShape,
+    public readonly fields: TShape,
     private readonly error: Sweety<null | TError>,
   ) {}
 
@@ -185,16 +185,16 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
 
     this.context = context
 
-    const entries = Object.values<SweetyForm<unknown, unknown>>(this.entries)
+    const fields = Object.values<SweetyForm<unknown, unknown>>(this.fields)
 
-    for (const entry of entries) {
-      entry.setContext(context)
+    for (const field of fields) {
+      field.setContext(context)
     }
   }
 
   public getValue(): UnpackFormShapeValue<TShape> {
     const acc = {} as UnpackFormShapeValue<TShape>
-    const pairs = Object.entries(this.entries) as Array<
+    const pairs = Object.entries(this.fields) as Array<
       [keyof TShape, SweetyForm<unknown, unknown>]
     >
 
@@ -207,14 +207,14 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
 
   public getError(): null | FormShapeError<TShape, TError> {
     let hasFieldErrors = false
-    const entries = {} as UnpackFormShapeError<TShape>
-    const pairs = Object.entries(this.entries) as Array<
+    const fields = {} as UnpackFormShapeError<TShape>
+    const pairs = Object.entries(this.fields) as Array<
       [keyof TShape, SweetyForm<unknown, unknown>]
     >
 
     for (const [key, field] of pairs) {
-      entries[key] = field.getError() as UnpackFormError<TShape[keyof TShape]>
-      hasFieldErrors = hasFieldErrors || entries[key] != null
+      fields[key] = field.getError() as UnpackFormError<TShape[keyof TShape]>
+      hasFieldErrors = hasFieldErrors || fields[key] != null
     }
 
     const shapeError = this.error.getState()
@@ -225,7 +225,7 @@ export class FormShape<TShape extends FormShapeRecord<TShape>, TError = null>
 
     return {
       shape: shapeError as WhenUnknown<null, TError>,
-      entries: hasFieldErrors ? entries : null,
+      fields: hasFieldErrors ? fields : null,
     }
   }
 
